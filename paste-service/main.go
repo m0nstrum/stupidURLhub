@@ -37,6 +37,7 @@ func main() {
 
 func runTestServer(cfg *config.Config) {
 	log.Println("Запуск сервера в тестовом режиме...")
+	fmt.Printf("Конфигурация: %+v\n", cfg)
 
 	gin.SetMode(gin.DebugMode)
 
