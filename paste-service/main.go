@@ -45,10 +45,7 @@ func runTestServer(cfg *config.Config) {
 	mockTagger := tagger.NewMockClient([]string{"test", "mock"}, nil)
 	mockSluggen := sluggen.NewMockClient("test-slug", nil)
 
-	mockRepo := &repository.PasteRepository{
-		DB:    nil,
-		Cache: cacheInstance,
-	}
+	mockRepo := repository.NewPasteRepository(nil, cacheInstance, cfg.Cache.DefaultTTL)
 
 	pasteService := service.NewPasteService(mockRepo, mockTagger, mockSluggen)
 
@@ -119,6 +116,9 @@ func startServer(srv *http.Server, shutdownTimeout time.Duration) {
 	<-quit
 	log.Println("Получен сигнал остановки, завершение работы...")
 
+	cache.CloseRedisConnections()
+	log.Println("Соединения с Redis закрыты")
+
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer cancel()
 
@@ -168,8 +168,13 @@ func setupDatabase(cfg *config.Config) (*gorm.DB, error) {
 
 func setupCache(cfg *config.Config) cache.Cache {
 	if cfg.Cache.Type == "redis" {
-		// TODO: redis
-		log.Println("Redis кэш пока не реализован, используется in-memory кэш")
+		redisCache, err := cache.NewRedisCache(cfg.Cache.RedisURL)
+		if err != nil {
+			log.Printf("Ошибка подключения к Redis: %v, используется in-memory кэш", err)
+			return cache.NewInMemoryCache(cfg.Cache.RefreshTTLOnGet)
+		}
+		log.Println("Используется Redis кэш")
+		return redisCache
 	}
 
 	log.Println("Используется in-memory кэш")

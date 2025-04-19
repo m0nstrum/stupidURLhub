@@ -43,6 +43,17 @@ func (r *PasteRepository) CreatePaste(p *model.Paste) error {
 }
 
 func (r *PasteRepository) GetPasteBySlug(slug string) (*model.Paste, error) {
+	// типизированное
+	var cachedPaste model.Paste
+	if r.Cache.GetTyped(slug, &cachedPaste) {
+		if cachedPaste.HasExpired() {
+			r.Cache.Invalidate(slug)
+			return nil, ErrPasteExpired
+		}
+		return &cachedPaste, nil
+	}
+
+	// стандарт
 	if cached, ok := r.Cache.Get(slug); ok {
 		if paste, valid := cached.(*model.Paste); valid {
 			if paste.HasExpired() {
@@ -52,6 +63,7 @@ func (r *PasteRepository) GetPasteBySlug(slug string) (*model.Paste, error) {
 			return paste, nil
 		}
 	}
+
 	var paste model.Paste
 	if err := r.DB.Where("slug = ?", slug).First(&paste).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -98,12 +110,19 @@ func (r *PasteRepository) IncrementViewCount(slug string) error {
 	}
 
 	now := time.Now()
+
 	if err := r.DB.Model(&model.Paste{}).Where("slug = ?", slug).
 		Updates(map[string]interface{}{
 			"view_count":  gorm.Expr("view_count + ?", 1),
 			"last_viewed": now,
 		}).Error; err != nil {
 		return err
+	}
+
+	var paste model.Paste
+	if err := r.DB.Where("slug = ?", slug).First(&paste).Error; err == nil {
+		r.Cache.Set(slug, &paste, r.cacheTTL)
+		return nil
 	}
 
 	if cached, ok := r.Cache.Get(slug); ok {

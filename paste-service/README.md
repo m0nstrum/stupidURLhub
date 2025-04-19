@@ -1,6 +1,6 @@
 # Paste Service
 
-Подсервис для хранения и управления текстовыми блоками (пастами) с возможностью тегирования и генерации уникальных человекочитаемых URL.
+Подсервис для хранения и управления текстовыми пастами с возможностью тегирования и генерации уникальных человекочитаемых URL.
 
 
 ## Запуск с использованием Docker
@@ -11,15 +11,35 @@ docker build -t paste-service .
 
 # Запуск контейнера
 docker run -d -p 8080:8080 \
-  -e DB_HOST=localhost \
-  -e DB_PORT=5432 \
-  -e DB_USER=postgres \
-  -e DB_PASSWORD=postgres \
-  -e DB_NAME=paste_service \
-  -e TAGGER_BASE_URL=http://tagger-ml:8000 \
+  -e DATABASE_HOST=localhost \
+  -e DATABASE_PORT=5432 \
+  -e DATABASE_USER=postgres \
+  -e DATABASE_PASSWORD=postgres \
+  -e DATABASE_DBNAME=paste_service \
+  -e DATABASE_SSLMODE=disable \
+  -e CACHE_TYPE=redis \
+  -e CACHE_REDISURL=redis://localhost:6379/0 \
+  -e TAGGER_BASEURL=http://tagger-ml:8000 \
   -e SLUGGEN_ADDRESS=slug-generator:50051 \
   --name paste-service paste-service
 ```
+
+## Запуск с использованием Docker Compose
+
+Для запуска сервиса вместе с PostgreSQL и Redis, используйте Docker Compose:
+
+```bash
+# Запуск всех сервисов
+docker-compose up -d
+
+# Остановка сервисов
+docker-compose down
+
+# Остановка сервисов и удаление данных
+docker-compose down -v
+```
+
+Сервис будет доступен на порту 8080, PostgreSQL на 5432, Redis на 6379.
 
 ## Конфигурация
 
@@ -27,30 +47,30 @@ docker run -d -p 8080:8080 \
 
 ### Сервер
 - `SERVER_PORT` - порт сервера (по умолчанию 8080)
-- `SERVER_READ_TIMEOUT` - таймаут чтения запроса (по умолчанию 10s)
-- `SERVER_WRITE_TIMEOUT` - таймаут записи ответа (по умолчанию 10s)
-- `SERVER_SHUTDOWN_TIMEOUT` - таймаут для graceful shutdown (по умолчанию 5s)
-- `SERVER_MAX_REQUEST_SIZE` - максимальный размер запроса (по умолчанию 5MB)
-- `SERVER_RATE_LIMIT` - ограничение количества запросов в минуту (по умолчанию 100)
-- `TEST_MODE` - запуск в тестовом режиме без базы данных (по умолчанию false)
+- `SERVER_READTIMEOUT` - таймаут чтения запроса (по умолчанию 10s)
+- `SERVER_WRITETIMEOUT` - таймаут записи ответа (по умолчанию 10s)
+- `SERVER_SHUTDOWNTIMEOUT` - таймаут для graceful shutdown (по умолчанию 5s)
+- `SERVER_MAXREQUESTSIZE` - максимальный размер запроса (по умолчанию 5MB)
+- `SERVER_RATELIMIT` - ограничение количества запросов в минуту (по умолчанию 100)
+- `SERVER_TESTMODE` - запуск в тестовом режиме без базы данных (по умолчанию false)
 
 ### База данных
-- `DB_HOST` - хост базы данных (по умолчанию localhost)
-- `DB_PORT` - порт базы данных (по умолчанию 5432)
-- `DB_USER` - пользователь базы данных (по умолчанию postgres)
-- `DB_PASSWORD` - пароль базы данных (по умолчанию postgres)
-- `DB_NAME` - имя базы данных (по умолчанию paste_service)
-- `DB_SSL_MODE` - режим SSL (по умолчанию disable)
+- `DATABASE_HOST` - хост базы данных (по умолчанию localhost)
+- `DATABASE_PORT` - порт базы данных (по умолчанию 5432)
+- `DATABASE_USER` - пользователь базы данных (по умолчанию postgres)
+- `DATABASE_PASSWORD` - пароль базы данных (по умолчанию postgres)
+- `DATABASE_DBNAME` - имя базы данных (по умолчанию paste_service)
+- `DATABASE_SSLMODE` - режим SSL (по умолчанию disable)
 
 ### Кэш
-- `CACHE_TYPE` - тип кэша: inmemory или redis (по умолчанию inmemory) (я ленивый и пока не сделал редис)
-- `REDIS_URL` - URL для подключения к Redis (по умолчанию redis://localhost:6379/0)
-- `CACHE_DEFAULT_TTL` - время жизни кэша по умолчанию (по умолчанию 10m)
-- `CACHE_GC_INTERVAL` - интервал очистки кэша (по умолчанию 1m)
-- `CACHE_REFRESH_TTL` - обновлять TTL при получении из кэша (по умолчанию true)
+- `CACHE_TYPE` - тип кэша: inmemory или redis (по умолчанию inmemory)
+- `CACHE_REDISURL` - URL для подключения к Redis (по умолчанию redis://localhost:6379/0)
+- `CACHE_DEFAULTTTL` - время жизни кэша по умолчанию (по умолчанию 10m)
+- `CACHE_GCINTERVAL` - интервал очистки кэша (по умолчанию 1m)
+- `CACHE_REFRESHTTLONGET` - обновлять TTL записи при получении ее из кэша (по умолчанию true, пытаемся держать популярные записи в кэше и не перезакидывать их лишний раз)
 
 ### Внешние сервисы
-- `TAGGER_BASE_URL` - базовый URL сервиса тегирования (по умолчанию http://tagger-ml:8000)
+- `TAGGER_BASEURL` - базовый URL сервиса тегирования (по умолчанию http://tagger-ml:8000)
 - `TAGGER_TIMEOUT` - таймаут запросов к сервису тегирования (по умолчанию 5s)
 - `TAGGER_MAX_TEXT_SIZE` - максимальный размер текста для тегирования (по умолчанию 10KB)
 - `SLUGGEN_ADDRESS` - адрес сервиса генерации slug (по умолчанию slug-generator:50051)

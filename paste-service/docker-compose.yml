@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  paste-service:
+    build: .
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      - SERVER_PORT=8080
+      - DATABASE_HOST=postgres
+      - DATABASE_PORT=5432
+      - DATABASE_USER=postgres
+      - DATABASE_PASSWORD=postgres
+      - DATABASE_DBNAME=paste_service
+      - DATABASE_SSLMODE=disable
+      - CACHE_TYPE=redis
+      - CACHE_REDISURL=redis://redis:6379/0
+      - CACHE_DEFAULTTTL=10m
+      - CACHE_GCINTERVAL=1m
+      - CACHE_REFRESHTTLONGET=true
+      - SLUGGEN_ADDRESS=slug-generator:50051
+      - TAGGER_BASEURL=http://tagger-ml:8000
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:14
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=paste_service
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
+  redis-data: 

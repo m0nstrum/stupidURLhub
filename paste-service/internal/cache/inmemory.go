@@ -3,6 +3,8 @@
 package cache
 
 import (
+	"encoding/json"
+	"reflect"
 	"sync"
 	"time"
 )
@@ -59,6 +61,37 @@ func (c *InMemoryCache) Get(key string) (interface{}, bool) {
 
 	c.mu.RUnlock()
 	return ent.value, true
+}
+
+func (c *InMemoryCache) GetTyped(key string, result interface{}) bool {
+	value, ok := c.Get(key)
+	if !ok {
+		return false
+	}
+
+	resultVal := reflect.ValueOf(result)
+	if resultVal.Kind() != reflect.Ptr || resultVal.IsNil() {
+		return false
+	}
+
+	resultElem := resultVal.Elem()
+	sourceVal := reflect.ValueOf(value)
+
+	if resultElem.Type().AssignableTo(sourceVal.Type()) {
+		resultElem.Set(sourceVal)
+		return true
+	}
+
+	data, err := json.Marshal(value)
+	if err != nil {
+		return false
+	}
+
+	if err := json.Unmarshal(data, result); err != nil {
+		return false
+	}
+
+	return true
 }
 
 func (c *InMemoryCache) Set(key string, value interface{}, ttl time.Duration) {

@@ -125,15 +125,7 @@ func loadEnvToValue(prefix string, v reflect.Value) {
 		}
 
 		if field.Kind() == reflect.Struct {
-			if fieldType.Type.String() == "time.Duration" {
-				if value := os.Getenv(envName); value != "" {
-					if duration, err := time.ParseDuration(value); err == nil && duration > 0 {
-						field.SetInt(int64(duration))
-					}
-				}
-			} else {
-				loadEnvToValue(envName, field)
-			}
+			loadEnvToValue(envName, field)
 			continue
 		}
 
@@ -142,46 +134,47 @@ func loadEnvToValue(prefix string, v reflect.Value) {
 			continue
 		}
 
-		switch field.Kind() {
-		case reflect.String:
-			field.SetString(value)
-		case reflect.Int, reflect.Int64:
-			if fieldType.Type.String() == "time.Duration" {
-				if duration, err := time.ParseDuration(value); err == nil && duration > 0 {
-					field.SetInt(int64(duration))
-				}
-			} else if intVal, err := strconv.ParseInt(value, 10, 64); err == nil && intVal > 0 {
+		setValueFromEnv(field, value)
+	}
+}
+
+func setValueFromEnv(field reflect.Value, value string) {
+	switch field.Kind() {
+	case reflect.String:
+		field.SetString(value)
+
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		if field.Type().String() == "time.Duration" {
+			if duration, err := time.ParseDuration(value); err == nil {
+				field.SetInt(int64(duration))
+			}
+		} else {
+			if intVal, err := strconv.ParseInt(value, 10, 64); err == nil {
 				field.SetInt(intVal)
 			}
-		case reflect.Bool:
-			field.SetBool(strings.ToLower(value) == "true")
 		}
-	}
-}
 
-func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
-	if value := os.Getenv(key); value != "" {
-		if duration, err := time.ParseDuration(value); err == nil {
-			return duration
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		if uintVal, err := strconv.ParseUint(value, 10, 64); err == nil {
+			field.SetUint(uintVal)
 		}
-	}
-	return defaultValue
-}
 
-func getEnvInt(key string, defaultValue int) int {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.Atoi(value); err == nil {
-			return intValue
+	case reflect.Float32, reflect.Float64:
+		if floatVal, err := strconv.ParseFloat(value, 64); err == nil {
+			field.SetFloat(floatVal)
 		}
-	}
-	return defaultValue
-}
 
-func getEnvInt64(key string, defaultValue int64) int64 {
-	if value := os.Getenv(key); value != "" {
-		if intValue, err := strconv.ParseInt(value, 10, 64); err == nil {
-			return intValue
+	case reflect.Bool:
+		field.SetBool(strings.ToLower(value) == "true")
+
+	case reflect.Slice:
+		if field.Type().Elem().Kind() == reflect.String {
+			values := strings.Split(value, ",")
+			slice := reflect.MakeSlice(field.Type(), len(values), len(values))
+			for i, v := range values {
+				slice.Index(i).SetString(strings.TrimSpace(v))
+			}
+			field.Set(slice)
 		}
 	}
-	return defaultValue
 }

@@ -177,11 +177,22 @@ func (s *PasteService) GetPaste(slug string) (*PasteResponse, error) {
 
 	if err := s.repo.IncrementViewCount(slug); err != nil {
 		fmt.Printf("Ошибка при инкрементировании счетчика просмотров: %v\n", err)
+	} else {
+		updatedPaste, err := s.repo.GetPasteBySlug(slug)
+		if err == nil {
+			paste = updatedPaste
+		} else {
+			now := time.Now()
+			paste.ViewCount++
+			if paste.LastViewed == nil {
+				paste.LastViewed = &now
+			} else {
+				*paste.LastViewed = now
+			}
+		}
 	}
 
-	pasteCopy := *paste
-	pasteCopy.ViewCount++
-	response := s.convertPasteToResponse(&pasteCopy)
+	response := s.convertPasteToResponse(paste)
 	return &response, nil
 }
 
